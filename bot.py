@@ -13,13 +13,13 @@ import states
 from keyboards import DefaulfKeyboard, EditListKeyboard, ListKeyboard, TimeKeyboard
 from sqliter import Sqliter
 
-sql = Sqliter()
 
 bot = Bot(config.BOT_TOKEN)
 
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 loop = asyncio.get_event_loop()
+sql = Sqliter(loop)
 
 MINPERIOD = 5 * 60
 
@@ -66,7 +66,7 @@ async def process_new_reminder_reminder(message: types.Message,
         await message.answer(lang.ERROR_PARSE_TIME)
         return
     async with state.proxy() as data:
-        sql.insert_reminder(
+        await sql.insert_reminder(
             dict(user_id=message.from_user.id,
                  text=data["text"],
                  time=t,
@@ -123,7 +123,7 @@ async def process_new_periodic_reminder_period(message: types.Message,
         await message.answer(lang.TOO_SHORT_PERIOD)
         return
     async with state.proxy() as data:
-        sql.insert_reminder(
+        await sql.insert_reminder(
             dict(
                 user_id=message.from_user.id,
                 text=data["text"],
@@ -158,7 +158,7 @@ def build_list(reminders, start, lang):
 @dp.message_handler(CommandFilter("SHOW_LIST"))
 async def process_show_list_command(message: types.Message):
     lang = langs.get_lang(message.from_user.language_code)
-    reminders = sql.select_by_user(message.from_user.id)
+    reminders = await sql.select_by_user(message.from_user.id)
     text = build_list(reminders, 0, lang)
     keyboard = ListKeyboard(1, len(reminders), 0, len(reminders) > 8, lang)
     await message.answer(text, reply_markup=keyboard)
@@ -168,7 +168,7 @@ async def process_show_list_command(message: types.Message):
     lambda q: q.data and q.data.startswith("list-change-page"))
 async def process_list_callbacks(callback_query: types.CallbackQuery):
     lang = langs.get_lang(callback_query.from_user.language_code)
-    reminders = sql.select_by_user(callback_query.from_user.id)
+    reminders = await sql.select_by_user(callback_query.from_user.id)
     way, ind = callback_query.data.split("-")[-2:]
     ind = int(ind) - 1
     if way == "next":
@@ -188,7 +188,7 @@ async def process_list_callbacks(callback_query: types.CallbackQuery):
 async def process_list_item_menu(callback_query: types.CallbackQuery):
     lang = langs.get_lang(callback_query.from_user.id)
     index = int(callback_query.data.split("-")[-1])
-    reminders = sql.select_by_user(callback_query.from_user.id)
+    reminders = await sql.select_by_user(callback_query.from_user.id)
     if index > len(reminders):
         callback_query.data = "list-change-page-prev-9"
         await process_list_callbacks(callback_query)
@@ -206,9 +206,9 @@ async def process_list_item_menu(callback_query: types.CallbackQuery):
     lambda q: q.data and q.data.startswith("list-item-delete"))
 async def process_list_item_delete(callback_query: types.CallbackQuery):
     index = int(callback_query.data.split("-")[-1]) - 1
-    reminders = sql.select_by_user(callback_query.from_user.id)
+    reminders = await sql.select_by_user(callback_query.from_user.id)
     if index < len(reminders):
-        sql.delete(reminders[index]["id"])
+        await sql.delete(reminders[index]["id"])
     callback_query.data = "list-change-page-prev-9"
     await process_list_callbacks(callback_query)
 
@@ -220,7 +220,7 @@ async def process_all(message: types.Message):
 
 
 async def check_tasks():
-    for task in sql.select_good():
+    for task in await sql.select_good():
         await bot.send_message(task["user_id"], text=task["text"])
 
 

@@ -1,3 +1,4 @@
+import aiosqlite
 import sqlite3
 from time import time
 
@@ -13,13 +14,13 @@ def create_db():
 
 
 class Sqliter:
-    def __init__(self) -> None:
-        self.con = sqlite3.connect(FILENAME)
-        self.cur = self.con.cursor()
+    async def __init__(self, loop) -> None:
+        self.con = await aiosqlite.connect(FILENAME, loop=loop)
+        self.cur = await self.con.cursor()
 
-    def insert_reminder(self, task):
-        with self.con:
-            self.cur.execute(
+    async def insert_reminder(self, task):
+        async with self.con:
+            await self.cur.execute(
                 "INSERT INTO tasks VALUES (?, ?, ?, ?, ?)",
                 (
                     None,
@@ -30,12 +31,12 @@ class Sqliter:
                 ),
             )
 
-    def select_good(self):
+    async def select_good(self):
         curtime = str(time())
-        with self.con:
-            self.cur.execute("SELECT * FROM tasks WHERE time < ?", (curtime, ))
-            res = self.cur.fetchall()
-            self.cur.execute(
+        async with self.con:
+            await self.cur.execute("SELECT * FROM tasks WHERE time < ?", (curtime, ))
+            res = await self.cur.fetchall()
+            await self.cur.execute(
                 "DELETE FROM tasks WHERE time < ? AND period == 0",
                 (curtime, ))
             res = [{
@@ -45,16 +46,16 @@ class Sqliter:
                 "text": i[3],
                 "period": i[4],
             } for i in res]
-            self.cur.execute(
+            await self.cur.execute(
                 "UPDATE tasks SET time = time + period WHERE time < ?",
                 (curtime, ))
             return res
 
-    def select_by_user(self, user_id):
-        with self.con:
-            self.cur.execute("SELECT * FROM tasks WHERE user_id == ?",
+    async def select_by_user(self, user_id):
+        async with self.con:
+            await self.cur.execute("SELECT * FROM tasks WHERE user_id == ?",
                              (user_id, ))
-            res = self.cur.fetchall()
+            res = await self.cur.fetchall()
             res = [{
                 "id": i[0],
                 "user_id": i[1],
@@ -64,17 +65,16 @@ class Sqliter:
             } for i in res]
             return res
 
-    def delete(self, id):
-        with self.con:
-            self.cur.execute("DELETE FROM tasks WHERE id == ?", (id, ))
+    async def delete(self, id):
+        async with self.con:
+            await self.cur.execute("DELETE FROM tasks WHERE id == ?", (id, ))
 
-    def commit(self):
-        self.con.commit()
+    async def commit(self):
+        await self.con.commit()
 
-    def close(self):
-        self.con.close()
+    async def close(self):
+        await self.con.close()
 
 
 if __name__ == "__main__":
     create_db()
-    
