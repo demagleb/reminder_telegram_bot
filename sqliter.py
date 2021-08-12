@@ -14,13 +14,12 @@ def create_db():
 
 
 class Sqliter:
-    async def __init__(self, loop) -> None:
-        self.con = await aiosqlite.connect(FILENAME, loop=loop)
-        self.cur = await self.con.cursor()
+    def __init__(self) -> None:
+        pass
 
     async def insert_reminder(self, task):
-        async with self.con:
-            await self.cur.execute(
+        async with aiosqlite.connect(FILENAME) as con:
+            await con.execute(
                 "INSERT INTO tasks VALUES (?, ?, ?, ?, ?)",
                 (
                     None,
@@ -30,50 +29,50 @@ class Sqliter:
                     str(task["period"]),
                 ),
             )
+            await con.commit()
 
     async def select_good(self):
         curtime = str(time())
-        async with self.con:
-            await self.cur.execute("SELECT * FROM tasks WHERE time < ?", (curtime, ))
-            res = await self.cur.fetchall()
-            await self.cur.execute(
-                "DELETE FROM tasks WHERE time < ? AND period == 0",
-                (curtime, ))
-            res = [{
-                "id": i[0],
-                "user_id": i[1],
-                "time": i[2],
-                "text": i[3],
-                "period": i[4],
-            } for i in res]
-            await self.cur.execute(
-                "UPDATE tasks SET time = time + period WHERE time < ?",
-                (curtime, ))
-            return res
+        async with aiosqlite.connect(FILENAME) as con:
+            async with con.cursor() as cur:
+                await cur.execute("SELECT * FROM tasks WHERE time < ?",
+                                  (curtime, ))
+                res = await cur.fetchall()
+                await cur.execute(
+                    "DELETE FROM tasks WHERE time < ? AND period == 0",
+                    (curtime, ))
+                res = [{
+                    "id": i[0],
+                    "user_id": i[1],
+                    "time": i[2],
+                    "text": i[3],
+                    "period": i[4],
+                } for i in res]
+                await cur.execute(
+                    "UPDATE tasks SET time = time + period WHERE time < ?",
+                    (curtime, ))
+                await con.commit()
+                return res
 
     async def select_by_user(self, user_id):
-        async with self.con:
-            await self.cur.execute("SELECT * FROM tasks WHERE user_id == ?",
-                             (user_id, ))
-            res = await self.cur.fetchall()
-            res = [{
-                "id": i[0],
-                "user_id": i[1],
-                "time": i[2],
-                "text": i[3],
-                "period": i[4],
-            } for i in res]
-            return res
+        async with aiosqlite.connect(FILENAME) as con:
+            async with con.cursor() as cur:
+                await cur.execute("SELECT * FROM tasks WHERE user_id == ?",
+                                  (user_id, ))
+                res = await cur.fetchall()
+                res = [{
+                    "id": i[0],
+                    "user_id": i[1],
+                    "time": i[2],
+                    "text": i[3],
+                    "period": i[4],
+                } for i in res]
+                return res
 
     async def delete(self, id):
-        async with self.con:
-            await self.cur.execute("DELETE FROM tasks WHERE id == ?", (id, ))
-
-    async def commit(self):
-        await self.con.commit()
-
-    async def close(self):
-        await self.con.close()
+        async with aiosqlite.connect(FILENAME) as con:
+            await con.execute("DELETE FROM tasks WHERE id == ?", (id, ))
+            await con.commit()
 
 
 if __name__ == "__main__":

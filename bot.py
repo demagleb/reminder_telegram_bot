@@ -13,13 +13,12 @@ import states
 from keyboards import DefaulfKeyboard, EditListKeyboard, ListKeyboard, TimeKeyboard
 from sqliter import Sqliter
 
-
 bot = Bot(config.BOT_TOKEN)
 
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 loop = asyncio.get_event_loop()
-sql = Sqliter(loop)
+sql = Sqliter()
 
 MINPERIOD = 5 * 60
 
